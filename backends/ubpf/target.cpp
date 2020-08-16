@@ -178,4 +178,9 @@ namespace UBPF {
                     "}");
     }
 
+    void UbpfTarget::emitTraceMessage(Util::SourceCodeBuilder *builder, const char* format) const {
+        builder->appendFormat("ubpf_printf(%s);", format);
+        builder->newline();
+    }
+
 }  // namespace UBPF

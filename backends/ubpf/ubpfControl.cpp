@@ -177,7 +177,7 @@ namespace UBPF {
     UBPFControlBodyTranslator::processApply(const P4::ApplyMethod *method) {
         auto table = control->getTable(method->object->getName().name);
         BUG_CHECK(table != nullptr, "No table for %1%", method->expr);
-
+        control->program->traceFormat(builder, "Applying table %s", table->dataMapName);
         cstring actionVariableName;
         if (!saveAction.empty()) {
             actionVariableName = saveAction.at(saveAction.size() - 1);
@@ -214,6 +214,13 @@ namespace UBPF {
             builder->emitIndent();
             builder->appendLine("/* perform lookup */");
             builder->emitIndent();
+            control->program->traceFormat(builder, "Performing table %s lookup", table->dataMapName);
+            for (auto k : table->keyGenerator->keyElements) {
+                builder->emitIndent();
+                cstring keyDump = Util::printf_format("Key field '%s':", k->expression->toString()) + " 0x%llx";
+                control->program->traceWithArgs(builder, keyDump, 1, k->expression->toString());
+            }
+            builder->emitIndent();
             builder->appendFormat("%s = ", valueName.c_str());
             builder->target->emitTableLookup(builder, table->dataMapName,
                                              keyname, valueName);
@@ -238,10 +245,12 @@ namespace UBPF {
 
         builder->blockEnd(true);
         builder->emitIndent();
-        builder->appendFormat("else return %s",
-                              builder->target->abortReturnCode().c_str());
-        builder->endOfStatement(true);
-
+        builder->appendLine("else");
+        builder->emitIndent();
+        builder->blockStart();
+        builder->emitIndent();
+        control->program->traceFormat(builder, "No entry found for table %s", table->dataMapName);
+        builder->blockEnd(true);
         builder->blockEnd(true);
     }
 
@@ -280,11 +289,13 @@ namespace UBPF {
         }
 
         if (auto ef = mi->to<P4::ExternFunction>()) {
+            control->program->traceFormat(builder, "Invoking extern function %s()", ef->expr->toString());
             processFunction(ef);
             return false;
         }
 
         if (auto ext = mi->to<P4::ExternMethod>()) {
+            control->program->traceFormat(builder, "Invoking extern method %s()", ext->expr->toString());
             processMethod(ext);
             return false;
         }
@@ -295,11 +306,13 @@ namespace UBPF {
                 builder->append(".ebpf_valid");
                 return false;
             } else if (bim->name == IR::Type_Header::setValid) {
+                control->program->traceFormat(builder, "Calling setValid() for header %s", bim->appliedTo->toString());
                 builder->emitIndent();
                 visit(bim->appliedTo);
                 builder->append(".ebpf_valid = true");
                 return false;
             } else if (bim->name == IR::Type_Header::setInvalid) {
+                control->program->traceFormat(builder, "Calling setInvalid() for header %s", bim->appliedTo->toString());
                 builder->emitIndent();
                 visit(bim->appliedTo);
                 builder->append(".ebpf_valid = false");
@@ -311,6 +324,7 @@ namespace UBPF {
             // Action arguments have been eliminated by the mid-end.
             BUG_CHECK(expression->arguments->empty(),
                       "%1%: unexpected arguments for action call", expression);
+            control->program->traceFormat(builder, "Invoking action %s", ac->action->name.toString());
             visit(ac->action->body);
             return false;
         }
@@ -438,6 +452,8 @@ namespace UBPF {
         visit(mem->expr);
         saveAction.pop_back();
         saveAction.emplace_back(nullptr);
+        builder->emitIndent();
+        control->program->traceWithArgs(builder, "Running action ID %d", 1, newName);
         builder->emitIndent();
         builder->append("switch (");
         builder->append(newName);
@@ -576,6 +592,7 @@ namespace UBPF {
     }
 
     void UBPFControl::emit(EBPF::CodeBuilder *builder) {
+        program->trace(builder, "Packet enters control pipeline");
         for (auto a : controlBlock->container->controlLocals) {
             emitDeclaration(builder, a);
         }

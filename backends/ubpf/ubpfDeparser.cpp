@@ -221,7 +221,10 @@ void UBPFDeparserTranslationVisitor::compileEmitField(const IR::Expression *expr
         }
         alignment = (alignment + bitsToWrite) % 8;
     }
-
+    builder->emitIndent();
+    cstring msg = "Deparser: field " + field + " deparsed. Value=0x%llx";
+    cstring fieldStr = expr->toString() + "." + field;
+    program->traceWithArgs(builder, msg, 1, fieldStr.c_str());
     builder->emitIndent();
     builder->appendFormat("%s += %d", program->offsetVar.c_str(),
                           widthToEmit);
@@ -241,6 +244,8 @@ void UBPFDeparserTranslationVisitor::compileEmit(const IR::Vector<IR::Argument> 
     }
 
     builder->emitIndent();
+    deparser->program->traceFormat(builder, "Deparser: deparsing header %s", expr->toString());
+    builder->emitIndent();
     builder->append("if (");
     visit(expr);
     builder->append(".ebpf_valid) ");
@@ -248,6 +253,11 @@ void UBPFDeparserTranslationVisitor::compileEmit(const IR::Vector<IR::Argument> 
 
     auto program = deparser->program;
     unsigned width = ht->width_bits();
+    cstring offsetStr = Util::printf_format("BYTES(%s + %s)", program->offsetVar, cstring::to_cstring(width));
+    deparser->program->traceWithArgs(builder,
+                                     "Parser: checking packet length, pkt_len=%d < header_size=%d",
+                                     2,
+                                     program->lengthVar.c_str(), offsetStr.c_str());
     builder->emitIndent();
     builder->appendFormat("if (%s < BYTES(%s + %d)) ",
                           program->lengthVar.c_str(),
@@ -318,6 +328,7 @@ bool UBPFDeparser::build() {
 
 void UBPFDeparser::emit(EBPF::CodeBuilder *builder) {
     builder->emitIndent();
+    program->trace(builder, "Packet enters Deparser");
     builder->appendFormat("int %s = 0", program->outerHdrLengthVar.c_str());
     builder->endOfStatement(true);
 
@@ -334,6 +345,10 @@ void UBPFDeparser::emit(EBPF::CodeBuilder *builder) {
     builder->appendFormat("int %s = BYTES(%s) - BYTES(%s)", program->outerHdrOffsetVar.c_str(),
                           program->outerHdrLengthVar.c_str(), program->offsetVar.c_str());
     builder->endOfStatement(true);
+
+    builder->emitIndent();
+    program->traceWithArgs(builder, "Deparser: Adjusting packet length from %d to %d", 2, program->lengthVar,
+            Util::printf_format("%s + %s", program->lengthVar, program->outerHdrOffsetVar));
 
     builder->emitIndent();
     builder->appendFormat("%s = ubpf_adjust_head(%s, %s)",
@@ -355,6 +370,10 @@ void UBPFDeparser::emit(EBPF::CodeBuilder *builder) {
     builder->emitIndent();
     builder->appendFormat("if (%s > 0) ", program->packetTruncatedSizeVar.c_str());
     builder->blockStart();
+    builder->emitIndent();
+
+    program->traceWithArgs(builder, "Deparser: truncating packet. Cut %d bytes from the end", 1,
+                           program->packetTruncatedSizeVar);
     builder->emitIndent();
     builder->appendFormat("%s -= ubpf_truncate_packet(%s, %s)", program->lengthVar.c_str(),
                           program->contextVar.c_str(), program->packetTruncatedSizeVar.c_str());

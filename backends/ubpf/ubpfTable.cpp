@@ -395,8 +395,11 @@ void UBPFTable::emitKey(EBPF::CodeBuilder *builder, cstring keyName) {
 }
 
 void UBPFTable::emitAction(EBPF::CodeBuilder *builder, cstring valueName) {
+    cstring actionValue = Util::printf_format("%s->action", valueName.c_str());
     builder->emitIndent();
-    builder->appendFormat("switch (%s->action) ", valueName.c_str());
+    program->traceWithArgs(builder, "Running action with internal ID=%d", 1, actionValue);
+    builder->emitIndent();
+    builder->appendFormat("switch (%s) ", actionValue);
     builder->blockStart();
 
     for (auto a : actionList->actionList) {
@@ -409,6 +412,14 @@ void UBPFTable::emitAction(EBPF::CodeBuilder *builder, cstring valueName) {
         builder->emitIndent();
         builder->blockStart();
         builder->emitIndent();
+        program->traceFormat(builder, "Invoking action '%s'", action->name.name);
+        for (auto p : *action->parameters->getEnumerator()) {
+            builder->emitIndent();
+            program->traceFormat(builder, "Param '%s' for action '%s'", p->name.name, action->name.name);
+            cstring paramValue = valueName + "->u." + EBPF::EBPFObject::externalName(action) + "." + p->toString();
+            builder->emitIndent();
+            program->traceWithArgs(builder, "Action parameter value: %llx", 1, paramValue);
+        }
 
         UbpfActionTranslationVisitor visitor(valueName, program);
         visitor.setBuilder(builder);
