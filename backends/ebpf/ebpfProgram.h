@@ -82,6 +82,43 @@ class EBPFProgram : public EBPFObject {
  public:
     virtual void emitH(CodeBuilder* builder, cstring headerFile);  // emits C headers
     virtual void emitC(CodeBuilder* builder, cstring headerFile);  // emits C program
+
+    // This function prints `format` and the `argc` number of arbitrary parameters to print.
+    // 'format' must provide a correct format for parameters to be printed.
+    void traceWithArgs(CodeBuilder *builder, const char* format, int argc, ...) const {
+        if (options.traceEnabled) {
+            va_list ap;
+            va_start(ap, format);
+            std::string str;
+            cstring msg = cstring("\"") + format + "\"";
+            for (int i = 0; i < argc; i++) {
+                auto arg = va_arg(ap, const char *);
+                if (!arg)
+                    break;
+                msg += ", ";
+                msg += cstring::to_cstring(arg);
+            }
+            builder->target->emitTraceMessage(builder, msg.c_str());
+            va_end(ap);
+        }
+    };
+
+    void traceFormat(CodeBuilder *builder, const char* format, ...) const {
+        va_list ap;
+        va_start(ap, format);
+        cstring str = Util::vprintf_format(format, ap);
+        va_end(ap);
+        str = Util::printf_format("\"%s\"", str);
+        builder->target->emitTraceMessage(builder, str.c_str());
+    };
+
+    // Prints a simple `message` during packet processing.
+    void trace(CodeBuilder *builder, const char* message) const {
+        if (options.traceEnabled) {
+            cstring str = cstring("\"") + message + "\"";
+            builder->target->emitTraceMessage(builder, str.c_str());
+        }
+    };
 };
 
 }  // namespace EBPF

@@ -60,10 +60,16 @@ class UBPFStateTranslationVisitor : public EBPF::CodeGenInspector {
 };
 }  // namespace
 
-// if expr is nullprt, width is used instead
+// if expr is nullptr, width is used instead
 void UBPFStateTranslationVisitor::emitCheckPacketLength(const IR::Expression* expr,
         const char * varname, unsigned width) {
     auto program = state->parser->program;
+
+    cstring offsetStr = Util::printf_format("BYTES(%s + %s)", program->offsetVar, cstring::to_cstring(width));
+    state->parser->program->traceWithArgs(builder,
+                                          "Parser: checking packet length, pkt_len=%d < header_size=%d",
+                                          2,
+                                          program->lengthVar.c_str(), offsetStr.c_str());
 
     builder->emitIndent();
     if (expr != nullptr) {
@@ -83,6 +89,7 @@ void UBPFStateTranslationVisitor::emitCheckPacketLength(const IR::Expression* ex
     }
 
     builder->blockStart();
+    state->parser->program->trace(builder, "Parser: invalid packet length (packet too short)");
     builder->emitIndent();
     builder->appendFormat("goto %s;", IR::ParserState::reject.c_str());
     builder->newline();
@@ -187,7 +194,7 @@ UBPFStateTranslationVisitor::compileExtractField(
         bool advanceCursor) {
     unsigned widthToExtract = dynamic_cast<EBPF::IHasWidth*>(type)->widthInBits();
     auto program = state->parser->program;
-
+    program->traceFormat(builder, "Parser: Extracting field '%s'", field);
     if (widthToExtract <= 64) {
         unsigned lastBitIndex = widthToExtract + alignment - 1;
         unsigned lastWordIndex = lastBitIndex / 8;
@@ -271,6 +278,10 @@ UBPFStateTranslationVisitor::compileExtractField(
         }
     }
 
+    cstring msg = "Parser: Field '" + field + "' extracted. Value=0x%llx";
+    cstring fieldStr = expr->toString() + "." + field;
+    program->traceWithArgs(builder, msg, 1, fieldStr.c_str());
+
     if (advanceCursor) {
         builder->emitIndent();
         builder->appendFormat("%s += %d", program->offsetVar.c_str(), widthToExtract);
@@ -289,6 +300,7 @@ UBPFStateTranslationVisitor::compileExtract(const IR::Expression* destination) {
         return;
     }
 
+    state->parser->program->traceFormat(builder, "Parser: Extracting header '%s'", destination->toString());
     unsigned width = ht->width_bits();
     emitCheckPacketLength(width);
 
@@ -310,6 +322,7 @@ UBPFStateTranslationVisitor::compileExtract(const IR::Expression* destination) {
         builder->emitIndent();
         visit(destination);
         builder->appendLine(".ebpf_valid = 1;");
+        state->parser->program->traceFormat(builder, "Parser: Header '%s' parsed successfully", destination->toString());
     }
 }
 
@@ -457,9 +470,12 @@ void UBPF::UBPFParser::emit(EBPF::CodeBuilder *builder) {
 
     // Create a synthetic reject state
     builder->emitIndent();
-    builder->appendFormat("%s: { return %s; }",
-                          IR::ParserState::reject.c_str(),
-                          builder->target->abortReturnCode().c_str());
+    builder->appendFormat("%s: { ",
+                          IR::ParserState::reject.c_str());
+    builder->newline();
+    program->trace(builder, "Rejecting packet");
+    builder->emitIndent();
+    builder->appendFormat("return %s; }", builder->target->abortReturnCode().c_str());
     builder->newline();
     builder->newline();
 }

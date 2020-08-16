@@ -54,6 +54,7 @@ namespace UBPF {
                       cstring standardMetadata) const;
         void emitUbpfHelpers(EBPF::CodeBuilder *builder) const;
         void emitChecksumHelpers(EBPF::CodeBuilder *builder) const;
+        void emitTraceMessage(Util::SourceCodeBuilder* builder, const char* format) const override;
 
         cstring dataOffset(UNUSED cstring base) const override { return cstring(""); }
         cstring dataEnd(UNUSED cstring base) const override { return cstring(""); }

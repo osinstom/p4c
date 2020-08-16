@@ -56,6 +56,9 @@ class Target {
     virtual void emitMain(Util::SourceCodeBuilder* builder,
                           cstring functionName,
                           cstring argName) const = 0;
+
+    // Emits trace message. Target should print the message provided, with no modification.
+    virtual void emitTraceMessage(Util::SourceCodeBuilder* builder, const char* message) const = 0;
     virtual cstring dataOffset(cstring base) const = 0;
     virtual cstring dataEnd(cstring base) const = 0;
     virtual cstring forwardReturnCode() const = 0;
@@ -85,6 +88,7 @@ class KernelSamplesTarget : public Target {
     void emitMain(Util::SourceCodeBuilder* builder,
                   cstring functionName,
                   cstring argName) const override;
+    void emitTraceMessage(Util::SourceCodeBuilder* builder, const char* format) const override {};
     cstring dataOffset(cstring base) const override
     { return cstring("((void*)(long)")+ base + "->data)"; }
     cstring dataEnd(cstring base) const override
@@ -114,6 +118,7 @@ class BccTarget : public Target {
     void emitMain(Util::SourceCodeBuilder* builder,
                   cstring functionName,
                   cstring argName) const override;
+    void emitTraceMessage(Util::SourceCodeBuilder* builder, const char* format) const override {};
     cstring dataOffset(cstring base) const override { return base; }
     cstring dataEnd(cstring base) const override
     { return cstring("(") + base + " + " + base + "->len)"; }

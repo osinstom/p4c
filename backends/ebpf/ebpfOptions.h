@@ -29,6 +29,8 @@ class EbpfOptions : public CompilerOptions {
     bool loadIRFromJson = false;
     // Externs generation
     bool emitExterns = false;
+    // Enable tracing of packet flow
+    bool traceEnabled = false;
     EbpfOptions();
 };
 

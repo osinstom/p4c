@@ -86,6 +86,7 @@ namespace UBPF {
 
         emitPacketLengthVariable(builder);
 
+        traceWithArgs(builder, "Processing new packet, packet_length=%d, input_port=%d", 2, lengthVar.c_str(), "std_meta->input_port");
         emitHeaderInstances(builder);
         builder->append(" = ");
         parser->headerType->emitInitializer(builder);
@@ -99,6 +100,7 @@ namespace UBPF {
         emitLocalVariables(builder);
         builder->newline();
         builder->emitIndent();
+
         builder->appendFormat("goto %s;", IR::ParserState::start.c_str());
         builder->newline();
 
@@ -113,6 +115,8 @@ namespace UBPF {
         deparser->emit(builder);
         builder->blockEnd(true);
 
+        builder->emitIndent();
+        traceWithArgs(builder, "Packet processing finished, pass=%d, output_port=%d", 2, control->passVariable, "std_meta->output_port");
         builder->emitIndent();
         builder->appendFormat("if (%s)\n", control->passVariable);
         builder->increaseIndent();
