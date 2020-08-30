@@ -221,7 +221,6 @@ void UBPFDeparserTranslationVisitor::compileEmitField(const IR::Expression *expr
         }
         alignment = (alignment + bitsToWrite) % 8;
     }
-    builder->emitIndent();
     cstring msg = "Deparser: field " + field + " deparsed. Value=0x%llx";
     cstring fieldStr = expr->toString() + "." + field;
     program->traceWithArgs(builder, msg, 1, fieldStr.c_str());
@@ -243,7 +242,6 @@ void UBPFDeparserTranslationVisitor::compileEmit(const IR::Vector<IR::Argument> 
         return;
     }
 
-    builder->emitIndent();
     deparser->program->traceFormat(builder, "Deparser: deparsing header %s", expr->toString());
     builder->emitIndent();
     builder->append("if (");

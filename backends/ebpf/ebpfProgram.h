@@ -87,6 +87,7 @@ class EBPFProgram : public EBPFObject {
     // 'format' must provide a correct format for parameters to be printed.
     void traceWithArgs(CodeBuilder *builder, const char* format, int argc, ...) const {
         if (options.traceEnabled) {
+            builder->emitIndent();
             va_list ap;
             va_start(ap, format);
             std::string str;
@@ -100,23 +101,30 @@ class EBPFProgram : public EBPFObject {
             }
             builder->target->emitTraceMessage(builder, msg.c_str());
             va_end(ap);
+            builder->newline();
         }
     };
 
     void traceFormat(CodeBuilder *builder, const char* format, ...) const {
-        va_list ap;
-        va_start(ap, format);
-        cstring str = Util::vprintf_format(format, ap);
-        va_end(ap);
-        str = Util::printf_format("\"%s\"", str);
-        builder->target->emitTraceMessage(builder, str.c_str());
+        if (options.traceEnabled) {
+            builder->emitIndent();
+            va_list ap;
+            va_start(ap, format);
+            cstring str = Util::vprintf_format(format, ap);
+            va_end(ap);
+            str = Util::printf_format("\"%s\"", str);
+            builder->target->emitTraceMessage(builder, str.c_str());
+            builder->newline();
+        }
     };
 
     // Prints a simple `message` during packet processing.
     void trace(CodeBuilder *builder, const char* message) const {
         if (options.traceEnabled) {
+            builder->emitIndent();
             cstring str = cstring("\"") + message + "\"";
             builder->target->emitTraceMessage(builder, str.c_str());
+            builder->newline();
         }
     };
 };

@@ -194,7 +194,6 @@ UBPFStateTranslationVisitor::compileExtractField(
         bool advanceCursor) {
     unsigned widthToExtract = dynamic_cast<EBPF::IHasWidth*>(type)->widthInBits();
     auto program = state->parser->program;
-    program->traceFormat(builder, "Parser: Extracting field '%s'", field);
     if (widthToExtract <= 64) {
         unsigned lastBitIndex = widthToExtract + alignment - 1;
         unsigned lastWordIndex = lastBitIndex / 8;
@@ -278,9 +277,11 @@ UBPFStateTranslationVisitor::compileExtractField(
         }
     }
 
-    cstring msg = "Parser: Field '" + field + "' extracted. Value=0x%llx";
-    cstring fieldStr = expr->toString() + "." + field;
-    program->traceWithArgs(builder, msg, 1, fieldStr.c_str());
+    if (expr != nullptr) {
+        cstring msg = "Parser: Field '" + field + "' extracted. Value=0x%llx";
+        cstring fieldStr = expr->toString() + "." + field;
+        program->traceWithArgs(builder, msg, 1, fieldStr.c_str());
+    }
 
     if (advanceCursor) {
         builder->emitIndent();
@@ -313,6 +314,8 @@ UBPFStateTranslationVisitor::compileExtract(const IR::Expression* destination) {
             ::error("Only headers with fixed widths supported %1%", f);
             return;
         }
+        cstring field = destination->toString() + "." + f->name;
+        state->parser->program->traceFormat(builder, "Parser: Extracting field '%s'", field);
         compileExtractField(destination, f->name, alignment, etype);
         alignment += et->widthInBits();
         alignment %= 8;
@@ -341,6 +344,7 @@ UBPFStateTranslationVisitor::compileLookahead(const IR::Expression* destination)
     // check packet's length
     emitCheckPacketLength(width);
 
+    state->parser->program->traceFormat(builder, "Parser: Looking ahead %d bits", etype->type->width_bits());
     builder->emitIndent();
     etype->emit(builder);
     builder->append(" ");
