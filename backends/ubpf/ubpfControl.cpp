@@ -213,10 +213,8 @@ namespace UBPF {
         if (table->keyGenerator != nullptr) {
             builder->emitIndent();
             builder->appendLine("/* perform lookup */");
-            builder->emitIndent();
             control->program->traceFormat(builder, "Performing table %s lookup", table->dataMapName);
             for (auto k : table->keyGenerator->keyElements) {
-                builder->emitIndent();
                 cstring keyDump = Util::printf_format("Key field '%s':", k->expression->toString()) + " 0x%llx";
                 control->program->traceWithArgs(builder, keyDump, 1, k->expression->toString());
             }
@@ -228,6 +226,36 @@ namespace UBPF {
         }
 
         builder->newline();
+
+        builder->emitIndent();
+        builder->appendFormat("if (%s == NULL) ", valueName.c_str());
+        builder->blockStart();
+
+        control->program->trace(builder, "Table miss. Using default action.");
+
+        builder->emitIndent();
+        builder->appendLine("/* miss; find default action */");
+        builder->emitIndent();
+        builder->appendFormat("%s = 0", control->hitVariable.c_str());
+        builder->endOfStatement(true);
+
+        builder->emitIndent();
+        builder->append("value = ");
+        builder->target->emitTableLookup(builder, table->defaultActionMapName,
+                                         control->program->zeroKey, valueName);
+        builder->endOfStatement(true);
+        builder->blockEnd(false);
+        builder->append(" else ");
+        builder->blockStart();
+        builder->emitIndent();
+        builder->appendFormat("%s = 1", control->hitVariable.c_str());
+        builder->endOfStatement(true);
+        builder->blockEnd(true);
+
+        cstring format = Util::printf_format("Table '%s' hit", table->instanceName);
+        format = format + " %d";
+        control->program->traceWithArgs(builder, format, 1, control->hitVariable.c_str());
+
         builder->emitIndent();
         builder->appendFormat("if (%s != NULL) ", valueName.c_str());
         builder->blockStart();
@@ -248,7 +276,6 @@ namespace UBPF {
         builder->appendLine("else");
         builder->emitIndent();
         builder->blockStart();
-        builder->emitIndent();
         control->program->traceFormat(builder, "No entry found for table %s", table->dataMapName);
         builder->blockEnd(true);
         builder->blockEnd(true);
@@ -452,7 +479,6 @@ namespace UBPF {
         visit(mem->expr);
         saveAction.pop_back();
         saveAction.emplace_back(nullptr);
-        builder->emitIndent();
         control->program->traceWithArgs(builder, "Running action ID %d", 1, newName);
         builder->emitIndent();
         builder->append("switch (");
@@ -639,7 +665,13 @@ namespace UBPF {
             it.second->emitInstance(builder);
     }
 
+    void UBPFControl::emitTableInitializers(EBPF::CodeBuilder *builder) {
+        for (auto it : tables)
+            it.second->emitInitializer(builder);
+    }
+
     bool UBPFControl::build() {
+        hitVariable = program->refMap->newName("hit");
         passVariable = program->refMap->newName("pass");
         auto pl = controlBlock->container->type->applyParams;
         if (pl->size() != 3) {
