@@ -169,6 +169,12 @@ namespace UBPF {
 
             pRegister->emitMethodInvocation(builder, method);
             return;
+        } else if (declType->name.name ==
+                   UBPFModel::instance.counterModel.name) {
+            cstring name = decl->getName().name;
+            auto pCounter = control->getCounter(name);
+            pCounter->emitMethodInvocation(builder, method);
+            return;
         }
         ::error("%1%: Unexpected method call", method->expr);
     }
@@ -584,10 +590,13 @@ namespace UBPF {
                     auto di = node->to<IR::Declaration_Instance>();
                     auto type = di->type->to<IR::Type_Specialized>();
                     auto externTypeName = type->baseType->path->name.name;
+                    cstring name = di->name.name;
                     if (externTypeName == UBPFModel::instance.registerModel.name) {
-                        cstring name = di->name.name;
-                        auto ctr = new UBPFRegister(program, ctrblk, name, codeGen);
-                        registers.emplace(name, ctr);
+                        auto reg = new UBPFRegister(program, ctrblk, name, codeGen);
+                        registers.emplace(name, reg);
+                    } else if (externTypeName == UBPFModel::instance.counterModel.name) {
+                        auto ctr = new UBPFCounter(program, ctrblk, name, codeGen);
+                        counters.emplace(name, ctr);
                     }
                 }
             } else if (!b->is<IR::Block>()) {
@@ -604,7 +613,6 @@ namespace UBPF {
             emitDeclaration(builder, a);
         }
 
-        codeGen->setBuilder(builder);
         builder->emitIndent();
         controlBlock->container->body->apply(*codeGen);
 
@@ -637,12 +645,21 @@ namespace UBPF {
     void UBPFControl::emitTableTypes(EBPF::CodeBuilder *builder) {
         for (auto it : tables)
             it.second->emitTypes(builder);
+        for (auto it : counters) {
+            // if one of counters is PACKETS_AND_BYTES, emit counter data type and break.
+            if (it.second->type == PACKETS_AND_BYTES) {
+                it.second->emitCounterDataType(builder);
+                break;
+            }
+        }
     }
 
     void UBPFControl::emitTableInstances(EBPF::CodeBuilder *builder) {
         for (auto it : tables)
             it.second->emitInstance(builder);
         for (auto it : registers)
+            it.second->emitInstance(builder);
+        for (auto it : counters)
             it.second->emitInstance(builder);
     }
 

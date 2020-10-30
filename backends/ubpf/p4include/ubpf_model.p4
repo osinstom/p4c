@@ -93,6 +93,17 @@ extern Register<T, S> {
   void write (in S index, in T value);
 }
 
+enum CounterType {
+    PACKETS,
+    BYTES,
+    PACKETS_AND_BYTES
+}
+
+extern Counter<W, S> {
+  Counter(bit<32> n_counters, CounterType type);
+  void count(in S index);
+}
+
 /*
  * The extern used to get the current timestamp in nanoseconds.
  */

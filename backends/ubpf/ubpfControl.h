@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "backends/ebpf/ebpfControl.h"
 #include "ubpfRegister.h"
+#include "ubpfCounter.h"
 
 namespace UBPF {
 
@@ -26,6 +27,7 @@ namespace UBPF {
 
     class UBPFControlBodyTranslator : public EBPF::ControlBodyTranslator {
     public:
+
         const UBPFControl *control;
         std::set<const IR::Parameter *> toDereference;
         std::vector<cstring> saveAction;
@@ -69,6 +71,7 @@ namespace UBPF {
         std::set<const IR::Parameter *> toDereference;
         std::map<cstring, UBPFTable *> tables;
         std::map<cstring, UBPFRegister *> registers;
+        std::map<cstring, UBPFCounter *> counters;
 
         UBPFControl(const UBPFProgram *program, const IR::ControlBlock *block,
                     const IR::Parameter *parserHeaders);
@@ -89,6 +92,12 @@ namespace UBPF {
         UBPFRegister *getRegister(cstring name) const {
             auto result = ::get(registers, name);
             BUG_CHECK(result != nullptr, "No register named %1%", name);
+            return result;
+        }
+
+        UBPFCounter *getCounter(cstring name) const {
+            auto result = ::get(counters, name);
+            BUG_CHECK(result != nullptr, "No counter named %1%", name);
             return result;
         }
 

@@ -27,6 +27,7 @@ set(P4C_UBPF_SOURCES
         ubpfType.cpp
         ubpfTable.cpp
         ubpfRegister.cpp
+        ubpfCounter.cpp
         ubpfModel.cpp
         target.cpp
         midend.cpp
@@ -50,6 +51,7 @@ set(P4C_UBPF_HEADERS
         ubpfDeparser.h
         ubpfControl.h
         ubpfRegister.h
+        ubpfCounter.h
         ubpfModel.h
         target.h
         midend.h

@@ -48,6 +48,15 @@ namespace UBPF {
         ::Model::Elem value;
     };
 
+    struct Counter_Model : public ::Model::Extern_Model {
+        Counter_Model() : Extern_Model("Counter"), n_counters("n_counters"), count("count"),
+            index("index"), type("type") {}
+        ::Model::Elem type;
+        ::Model::Elem n_counters;
+        ::Model::Elem count;
+        ::Model::Elem index;
+    };
+
     struct Algorithm_Model : public ::Model::Enum_Model {
         Algorithm_Model() : ::Model::Enum_Model("HashAlgorithm"),
                             lookup3("lookup3") {}
@@ -66,6 +75,7 @@ namespace UBPF {
                       packet("packet", P4::P4CoreLibrary::instance.packetIn, 0),
                       pipeline(),
                       registerModel(),
+                      counterModel(),
                       drop("mark_to_drop"),
                       pass("mark_to_pass"),
                       ubpf_time_get_ns("ubpf_time_get_ns"),
@@ -83,6 +93,7 @@ namespace UBPF {
         ::Model::Param_Model packet;
         Pipeline_Model pipeline;
         Register_Model registerModel;
+        Counter_Model counterModel;
         ::Model::Elem drop;
         ::Model::Elem pass;
         ::Model::Elem ubpf_time_get_ns;
